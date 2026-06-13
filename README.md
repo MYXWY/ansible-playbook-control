@@ -25,6 +25,7 @@ Deploys a HTTPS web server on Rocky Linux:
 ## Usage
 ```bash
 ansible-playbook playbook.yml
+```
 ## Execution Result
 
 
