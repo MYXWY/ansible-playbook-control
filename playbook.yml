@@ -1,0 +1,61 @@
+---
+
+
+- name: playbook control lab
+  hosts: webserver
+  vars_files: vars.yml
+  tasks:
+    #Fail Fast Message
+    - name: Fail Fast Message
+      ansible.builtin.fail:
+        msg: "The {{ inventory_hostname }} did not meet minimum reqs."
+      when:
+          ansible_facts['memtotal_mb'] <  min_ram_mb or ansible_facts['distribution'] != "Rocky"
+    #Install all Packages
+    - name: Ensure required packages are present
+      ansible.builtin.dnf:
+        name: "{{ packages }}"
+        state: latest
+
+    #Enable and start services
+    - name: Enable and start services
+      ansible.builtin.service:
+        name: "{{ item }}"
+        state: started
+        enabled: yes
+      loop: "{{ services }}" 
+    #Block of config tasks
+    - name: Block of config tasks
+      block:
+        - name: create ssl cert
+          ansible.builtin.file:
+            path: "{{ ssl_cert_dir }}"
+            state: directory
+        - name: copy config file
+          ansible.builtin.copy:
+            src: "{{ item['src'] }}"
+            dest: "{{ item ['dest'] }}"
+          loop: "{{ web_config_files }}"
+          notify: restart web service
+      rescue:
+        - name: Configuration Error Message
+          ansible.builtin.debug:
+            msg: >
+              One or more of the configuration
+              changes failed, but the web service
+              is still active.
+     #Configure the firewall
+    - name:  ensure web server ports are open
+      ansible.builtin.firewalld:
+        service: "{{ item }}"
+        immediate: true
+        permanent: true
+        state: enabled
+      loop:
+        - http
+        - https
+  handlers:
+    - name: restart web service
+      ansible.builtin.service:
+        name: "{{ web_service }}"
+        state: restarted  
